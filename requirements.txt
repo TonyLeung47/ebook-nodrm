@@ -1,5 +1,5 @@
 get-mac==0.9
-natsort=8
+natsort==8
 nuitka==1.7
 pycryptodome==3.18
 pydantic==2
