@@ -36,15 +36,17 @@ class Kobo:
         self._books: list[KoboBook] = []
         self._volumeID: list[Path] = []
         self._userkeys: list[bytes] = []
+
+        if not self.exists():
+            raise Exception("Kobo not found. You have to set kobo_dir in setting.toml")
         self.connect_db()
+
+    def exists(self) -> bool:
+        return self.kobodir.exists()
 
     def connect_db(self) -> None:
         """copy db file to temp file and read it"""
         kobodb = self.kobodir / "Kobo.sqlite"
-        if not kobodb.exists():
-            raise FileNotFoundError(
-                f"kobo_dir in setting.toml is not correct. Please check it.\n{kobodb}"
-            )
 
         # copy db file to temp file and read it
         self.newdb = tempfile.NamedTemporaryFile(mode="wb", delete=False)
@@ -163,6 +165,11 @@ class Kobo:
         """Sort"""
         self._books = natsort.natsorted(self._books, key=lambda x: x.title)
         return self._books
+
+    @property
+    def book_names(self) -> list[str]:
+        """The list of book names in the library."""
+        return [book.title for book in self.books]
 
     def __bookfile(self, volumeid: str) -> Path:
         """The filename needed to open a given book."""

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import tomllib
 from pydantic import TypeAdapter, BaseModel
 
@@ -6,6 +7,7 @@ from pydantic import TypeAdapter, BaseModel
 class setting(BaseModel):
     kobo_dir: str
     kindle_dir: str
+    default_folder: Path | None = Path(os.getcwd()).parent
 
 
 def load_setting(setting_file: Path | None = None) -> setting:
