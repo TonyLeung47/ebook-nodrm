@@ -1,0 +1,5 @@
+# path to the kobo directory. Change {{USERNAME}} to your username and may be there.
+kobo_dir = "C:\\Users\\  {{USERNAME}}   \\AppData\\Local\\Kobo\\Kobo Desktop Edition"
+
+# path to the kindle directory. Change {{USERNAME}} to your username and may be there.
+kindle_dir = "C:\\Users\\  {{USERNAME}}   \\Documents\\My Kindle Content"
