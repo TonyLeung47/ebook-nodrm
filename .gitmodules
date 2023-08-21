@@ -1,6 +1,6 @@
 [submodule "DeDRM_tools"]
 	path = DeDRM_tools
-	url = https://github.com/noDRM/DeDRM_tools.git
+	url = https://github.com/TonyLeung47/DeDRM_tools.git
 [submodule "KindleUnpack"]
 	path = KindleUnpack
 	url = https://github.com/kevinhendricks/KindleUnpack.git
