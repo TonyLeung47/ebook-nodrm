@@ -35,11 +35,11 @@ jobs:
                 standalone: true
                 enable-plugins: tk-inter
                 disable-console: true
-                include-data-file: setting.toml=setting.toml
-                output-filename: nodrm
+                include-data-files: setting.toml=setting.toml
+                output-file: nodrm
 
             - name: Create archive
-              run: Compress-Archive .\buid\gui.dist\* nodrm.zip
+              run: Compress-Archive .\build\gui.dist\* nodrm.zip
 
             - name: Release
               uses: softprops/action-gh-release@v1
