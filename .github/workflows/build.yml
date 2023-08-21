@@ -39,7 +39,7 @@ jobs:
                 output-file: nodrm
 
             - name: Create archive
-              run: Compress-Archive .\build\gui.dist\* nodrm.zip
+              run: Compress-Archive .\build\gui.dist\* nodrm.zip -CompressionLevel Optimal
 
             - name: Release
               uses: softprops/action-gh-release@v1
