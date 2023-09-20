@@ -1,6 +1,7 @@
 from pathlib import Path
 from kobo import Kobo
 from kindle import Kindle
+from text_util import rename_invalid_filename_characters
 
 
 class Ebook:
@@ -38,12 +39,12 @@ class Ebook:
             if index < len(self.kobo_book_names):
                 self.kobo.decrypt(
                     self.kobo_books[index],
-                    folder / (self.kobo_books[index].title + ".epub"),
+                    folder / (rename_invalid_filename_characters(self.kobo_books[index].title) + ".epub"),
                 )
             else:
                 index = index - len(self.kobo_book_names)
                 self.kindle.decrypt_epub(
-                    self.kindle_books[index], folder, self.kindle_book_names[index]
+                    self.kindle_books[index], folder, rename_invalid_filename_characters(self.kindle_book_names[index])
                 )
 
 
