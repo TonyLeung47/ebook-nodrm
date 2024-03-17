@@ -15,12 +15,12 @@ jobs:
 
         steps:
             - name: Check-out repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                 submodules: recursive
       
             - name: Set up Python 3.11
-              uses: actions/setup-python@v4
+              uses: actions/setup-python@v5
               with:
                 python-version: 3.11
             
@@ -44,7 +44,7 @@ jobs:
               run: Compress-Archive .\build\gui.dist\* nodrm.zip -CompressionLevel Optimal
 
             - name: Release
-              uses: softprops/action-gh-release@v1
+              uses: softprops/action-gh-release@v2
               with:
                 tag_name: ${{ github.event.pull_request.title }}
                 generate_release_notes: true
