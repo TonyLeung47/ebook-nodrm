@@ -1,6 +1,10 @@
 from pathlib import Path
-from kobo import Kobo
-from kindle import Kindle
+from tempfile import TemporaryDirectory
+
+from epub_to_image import epub2cbz
+from kindle import KindleBook, KindleProvider
+from kobo import KoboBook, KoboProvider
+from setting import load_setting
 from text_util import rename_invalid_filename_characters
 
 
@@ -9,47 +13,43 @@ class Ebook:
         """
         wrapper class for Kobo and Kindle
         """
+        self.setting = load_setting()
+
+        # kobo
         try:
-            self.kobo = Kobo()
-            self.kobo_books = self.kobo.books
-            self.kobo_book_names = [book.title for book in self.kobo_books]
-        except:
-            self.kobo_books = []
-            self.kobo_book_names = []
+            self.kobo = KoboProvider(self.setting)
+        except Exception as e:
+            print(e)
 
+        # kindle
         try:
-            self.kindle = Kindle()
-            self.kindle_books = self.kindle.books
-            self.kindle_book_names = [
-                self.kindle.get_title(book) or "Can't get title"
-                for book in self.kindle_books
-            ]
-        except:
-            self.kindle_books = []
-            self.kindle_book_names = []
+            self.kindle = KindleProvider(self.setting)
+        except Exception as e:
+            print(e)
 
-    @property
-    def books(self) -> list[str]:
-        """name of books"""
-        return self.kobo_book_names + self.kindle_book_names
+        self.books = self.kobo.books + self.kindle.books
 
-    def decrypto(self, folder: str | Path, indexes: list[int]) -> None:
+    def decrypt(self, folder: str | Path, indexes: list[int]) -> None:
         folder = Path(str(folder))
         for index in indexes:
-            if index < len(self.kobo_book_names):
-                self.kobo.decrypt(
-                    self.kobo_books[index],
-                    folder / (rename_invalid_filename_characters(self.kobo_books[index].title) + ".epub"),
-                )
-            else:
-                index = index - len(self.kobo_book_names)
-                self.kindle.decrypt_epub(
-                    self.kindle_books[index], folder, rename_invalid_filename_characters(self.kindle_book_names[index])
-                )
+            book = self.books[index]
+            title = book.get_title() or "Unknown"
+            title = rename_invalid_filename_characters(title)
+
+            if type(book) is KoboBook:
+                self.kobo.decrypt(book, folder, name=title)
+            elif type(book) is KindleBook:
+                self.kindle.decrypt(book, folder, name=title)
+
+    def decrypt_images(self, folder: str | Path, indexes: list[int]) -> None:
+        with TemporaryDirectory() as tmpdir:
+            self.decrypt(tmpdir, indexes)
+            for epub in Path(tmpdir).iterdir():
+                if epub.suffix != ".epub":
+                    continue
+                output_folder = Path(folder) / f"{epub.stem}.cbz"
+                epub2cbz(epub, output_folder)
 
 
 if __name__ == "__main__":
-    libs = Kobo()
-    for book in libs.books:
-        libs.decrypt(book, ("unko.epub"))
-        break
+    pass

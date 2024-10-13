@@ -1,52 +1,63 @@
-from typing import Literal
-import zipfile
-from Crypto.Cipher import AES
-from Crypto.Util import Padding
 import base64
 import binascii
 import hashlib
-from pathlib import Path
-from setting import load_setting
+import shutil
 import sqlite3
 import tempfile
-from getmac import get_mac_address
-from pydantic import BaseModel
-from text_util import full2half
+import zipfile
+from pathlib import Path
+from typing import Literal
+
 import natsort
-import shutil
+from Crypto.Cipher import AES
+from Crypto.Util import Padding
+from getmac import get_mac_address
+
+from book import Book, BookProvider
+from setting import Setting
+from text_util import full2half
+
+KOBO_HASH_KEYS = ["88b3a2e13", "XzUhGYdFp", "NoCanLook", "QJhwzAtXL"]
 
 
-class KoboBook(BaseModel):
-    volumeid: str
-    title: str
-    path: Path
-    type: Literal["kepub", "drm-free"]
-    author: str | None = None
-    series: str | None = None
-    series_number: str | None = None
+class KoboBook(Book):
+    def __init__(
+        self,
+        volumeid: str,
+        title: str,
+        path: Path,
+        drm_type: Literal["kepub", "drm-free"],
+        author: str | None = None,
+        series: str | None = None,
+        series_number: str | None = None,
+    ) -> None:
+        self.volumeid = volumeid
+        self.title = title
+        self.path = path
+        self.drm_type = drm_type
+        self.author = author
+        self.series = series
+        self.series_number = series_number
+
+    def get_title(self) -> str | None:
+        return self.title
 
 
-class Kobo:
-    KOBO_HASH_KEYS = ["88b3a2e13", "XzUhGYdFp", "NoCanLook", "QJhwzAtXL"]
-
-    def __init__(self) -> None:
-        settings = load_setting()
-        self.kobodir = Path(settings.kobo_dir)
-        self.bookdir = self.kobodir / "kepub"
+class KoboProvider(BookProvider):
+    def __init__(self, setting: Setting) -> None:
+        self.setting = setting
+        self.dir = Path(self.setting.kobo_dir)
+        self.book_dir = self.dir / "kepub"
         self._books: list[KoboBook] = []
         self._volumeID: list[Path] = []
         self._userkeys: list[bytes] = []
-
-        if not self.exists():
+        if not self.dir.exists():
             raise Exception("Kobo not found. You have to set kobo_dir in setting.toml")
         self.connect_db()
 
-    def exists(self) -> bool:
-        return self.kobodir.exists()
-
     def connect_db(self) -> None:
         """copy db file to temp file and read it"""
-        kobodb = self.kobodir / "Kobo.sqlite"
+        kobodb = self.dir / "Kobo.sqlite"
 
         # copy db file to temp file and read it
         self.newdb = tempfile.NamedTemporaryFile(mode="wb", delete=False)
@@ -69,18 +80,23 @@ class Kobo:
             try:
                 userid = row[0]
                 userids.append(userid)
-            except:
+            except:  # noqa: E722
                 pass
             row = cursor.fetchone()
         return userids
 
-    def getuserkeys(self) -> list[bytes]:
+    @property
+    def userkeys(self) -> list[bytes]:
         """get user key from mac address and user id"""
         if len(self._userkeys) != 0:
             return self._userkeys
         userids = self.getuserids()
-        macaddr = get_mac_address().upper()
-        for hash in self.KOBO_HASH_KEYS:
+        macaddr = get_mac_address()
+        if macaddr is None:
+            raise Exception("Failed to get mac address")
+        macaddr = macaddr.upper()
+
+        for hash in KOBO_HASH_KEYS:
             hashmacaddr = (hash + macaddr).encode()
             deviceid = hashlib.sha256(hashmacaddr).hexdigest()
             for userid in userids:
@@ -101,25 +117,6 @@ class Kobo:
         }
         return content_keys
 
-    def decrypt(self, book: KoboBook, output_path: Path) -> None:
-        """
-        Decrypt the book.
-
-        Args:
-            book (KoboBook): book to decrypt
-            output_path (Path): output file name. Shold be *.epub
-        """
-        if book.type == "drm-free":
-            return shutil.copy(book.path, output_path)
-        user_keys = self.getuserkeys()
-        content_keys = self.getcontentKeys(book.volumeid)
-        for user_key in user_keys:
-            try:
-                self.RemoveDrm(book.path, output_path, user_key, content_keys)
-                return
-            except:
-                pass
-
     @property
     def books(self) -> list[KoboBook]:
         """The list of KoboBook objects in the library."""
@@ -135,7 +132,7 @@ class Kobo:
                         volumeid=row[0],
                         title=full2half(row[1]),
                         path=self.__bookfile(row[0]),
-                        type="kepub",
+                        drm_type="kepub",
                         author=row[2],
                         series=row[3],
                         series_number=row[4],
@@ -143,7 +140,7 @@ class Kobo:
                 )
                 self._volumeID.append(row[0])
         """Drm-free"""
-        for f in self.bookdir.iterdir():
+        for f in self.dir.iterdir():
             if f.name not in self._volumeID:
                 row = self.__cursor.execute(
                     f"SELECT Title, Attribution, Series,SeriesNumber FROM content WHERE ContentID = '{f.name}'"
@@ -155,7 +152,7 @@ class Kobo:
                             volumeid=f.name,
                             title=fTitle,
                             path=self.__bookfile(f.name),
-                            type="drm-free",
+                            drm_type="drm-free",
                             author=row[1],
                             series=row[2],
                             series_number=row[3],
@@ -166,19 +163,32 @@ class Kobo:
         self._books = natsort.natsorted(self._books, key=lambda x: x.title)
         return self._books
 
-    @property
-    def book_names(self) -> list[str]:
-        """The list of book names in the library."""
-        return [book.title for book in self.books]
-
     def __bookfile(self, volumeid: str) -> Path:
         """The filename needed to open a given book."""
-        return self.kobodir / "kepub" / volumeid
+        return self.dir / "kepub" / volumeid
+
+    def decrypt(self, book: KoboBook, folder: Path, name: str | None):
+        """
+        Decrypt the book.
+
+        Args:
+            book (KoboBook): book to decrypt
+            folder (Path): output directory
+            name (str | None, optional): output name without suffix. Defaults to None.
+        """
+        output_path = folder / f"{name or book.title}.epub"
+        if book.drm_type == "drm-free":
+            return shutil.copy(book.path, output_path)
+        content_keys = self.getcontentKeys(book.volumeid)
+        for user_key in self.userkeys:
+            try:
+                self.RemoveDrm(book.path, output_path, user_key, content_keys)
+                return
+            except:  # noqa: E722
+                pass
 
     @staticmethod
-    def __DecryptContents(
-        contents: bytes, user_key: bytes, contentKeyBase64: str
-    ) -> bytes:
+    def __DecryptContents(contents: bytes, user_key: bytes, contentKeyBase64: str) -> bytes:
         contentKey = base64.b64decode(contentKeyBase64)
         keyAes = AES.new(user_key, AES.MODE_ECB)
         decryptedContentKey = keyAes.decrypt(contentKey)
@@ -200,7 +210,5 @@ class Kobo:
                     contents = inputZip.read(filename)
                     contentKeyBase64 = contentKeys.get(filename, None)
                     if contentKeyBase64 is not None:
-                        contents = Kobo.__DecryptContents(
-                            contents, user_key, contentKeyBase64
-                        )
+                        contents = KoboProvider.__DecryptContents(contents, user_key, contentKeyBase64)
                     outputZip.writestr(filename, contents)
