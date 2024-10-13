@@ -1,60 +1,51 @@
 name: Build
 
 on:
-    pull_request:
-        branches:
-            - main
-        types: closed
-  
+  pull_request:
+    branches:
+      - main
+    types: closed
+
 jobs:
-    build:
-        permissions:
-          contents: write
-        runs-on: windows-latest
-        if: github.event.pull_request.merged == true
+  build:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    if: github.event.pull_request.merged == true
 
-        steps:
-            - name: Check-out repository
-              uses: actions/checkout@v4
-              with:
-                submodules: recursive
-      
-            - name: Set up Python 3.11
-              uses: actions/setup-python@v5
-              with:
-                python-version: 3.11
-            
-            - name: Install dependencies
-              run: pip install -r requirements.txt
-                
-            - name: Build nuitka
-              uses: Nuitka/Nuitka-Action@main
-              with:
-                nuitka-version: main
-                script-name: gui.py
-                standalone: true
-                enable-plugins: tk-inter
-                disable-console: true
-                output-filename: nodrm
-            
-            - name: Move setting.toml
-              run: Move-Item .\setting.toml .\build\gui.dist\
-              
-            - name: Create archive
-              run: Compress-Archive .\build\gui.dist\* nodrm.zip -CompressionLevel Optimal
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-            - name: Release
-              uses: softprops/action-gh-release@v2
-              with:
-                tag_name: ${{ github.event.pull_request.title }}
-                generate_release_notes: true
-                files: |
-                  nodrm.zip
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-                
-            
+      - name: Build nuitka
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: gui.py
+          standalone: true
+          enable-plugins: tk-inter
+          disable-console: true
 
+      - name: Move setting.toml
+        run: Move-Item .\setting.toml .\build\gui.dist\
 
+      - name: Create archive
+        run: Compress-Archive .\build\gui.dist\* nodrm.zip -CompressionLevel Optimal
 
-     
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.pull_request.title }}
+          generate_release_notes: true
+          files: |
+            nodrm.zip
