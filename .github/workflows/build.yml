@@ -35,6 +35,7 @@ jobs:
           standalone: true
           enable-plugins: tk-inter
           disable-console: true
+          windows-icon-from-ico: icon.ico
 
       - name: Move setting.toml
         run: Move-Item .\setting.toml .\build\gui.dist\
