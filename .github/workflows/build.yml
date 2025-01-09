@@ -32,7 +32,7 @@ jobs:
         with:
           nuitka-version: main
           script-name: gui.py
-          standalone: true
+          mode: standalone
           enable-plugins: tk-inter
           disable-console: true
           windows-icon-from-ico: icon.ico
