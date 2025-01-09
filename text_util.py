@@ -12,6 +12,11 @@ def full2half(text: str) -> str:
 
 def rename_invalid_filename_characters(text: str, changed: str = " ")->str:
     """
-    Convert characters that cannot be used in file names
+    Convert characters that cannot be used in file names and max length 255
     """
-    return  re.sub(r'[\\|/|:|?|.|"|<|>|\|]', changed, text)
+    new_name = re.sub(r'[\\|/|:|?|.|"|<|>|\|]', changed, text)
+
+    # max length 255. ".epub" will be added later
+    while len(new_name.encode()) > 245:
+        new_name = new_name[:-1]
+    return new_name
