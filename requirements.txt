@@ -1,4 +1,4 @@
-get-mac>=0.9
+psutil>=7.2.2
 natsort>=8.4
 nuitka>=2.4
 pycryptodome>=3.21
