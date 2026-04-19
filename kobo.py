@@ -9,15 +9,27 @@ from pathlib import Path
 from typing import Literal
 
 import natsort
+import psutil
 from Crypto.Cipher import AES
 from Crypto.Util import Padding
-from getmac import get_mac_address
 
 from book import Book, BookProvider
 from setting import Setting
 from text_util import full2half
 
 KOBO_HASH_KEYS = ["88b3a2e13", "XzUhGYdFp", "NoCanLook", "QJhwzAtXL"]
+
+
+def get_all_mac_addresses():
+    mac_addresses = []
+    interfaces = psutil.net_if_addrs()
+
+    for _, interface_addresses in interfaces.items():
+        for address in interface_addresses:
+            if address.family == psutil.AF_LINK:
+                mac_addresses.append(address.address.replace("-", ":").upper())
+
+    return mac_addresses
 
 
 class KoboBook(Book):
@@ -91,10 +103,10 @@ class KoboProvider(BookProvider):
         if len(self._userkeys) != 0:
             return self._userkeys
         userids = self.getuserids()
-        macaddr = get_mac_address()
-        if macaddr is None:
+        macaddr = get_all_mac_addresses()
+        if len(macaddr) == 0:
             raise Exception("Failed to get mac address")
-        macaddr = macaddr.upper()
+        macaddr = macaddr[0]  # Use the first MAC address found
 
         for hash in KOBO_HASH_KEYS:
             hashmacaddr = (hash + macaddr).encode()
